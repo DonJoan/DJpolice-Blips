@@ -8,53 +8,70 @@ CreateThread(function()
         Wait(100)
     end
 
-    -- Start job checker
-    CreateThread(CheckJobLoop)
-    -- Start blip loop
-    CreateThread(UpdateBlipsLoop)
+    -- Start monitoring job and blips
+    CreateThread(MonitorJob)
+    CreateThread(UpdatePoliceBlips)
 end)
 
-function RemoveAllPoliceBlips()
-    for _, blip in pairs(blips) do
-        RemoveBlip(blip)
-    end
-    blips = {}
-end
-
-function CheckJobLoop()
+function MonitorJob()
     while true do
-        Wait(5000)
+        Wait(10000)
         ESX.TriggerServerCallback('policeblips:getJob', function(job)
             local wasPolice = isPolice
             isPolice = job == 'police'
 
             if wasPolice and not isPolice then
-                RemoveAllPoliceBlips()
+                ClearAllBlips()
             end
         end)
     end
 end
 
-function UpdateBlipsLoop()
+function UpdatePoliceBlips()
     while true do
-        Wait(100)
-        if isPolice then
-            ESX.TriggerServerCallback('policeblips:getCopsWithCoords', function(cops)
-                RemoveAllPoliceBlips()
-                for _, cop in pairs(cops) do
-                    if cop.id ~= GetPlayerServerId(PlayerId()) and cop.coords then
+        Wait(100) -- Reduced frequency for performance
+
+        if not isPolice then goto continue end
+
+        ESX.TriggerServerCallback('policeblips:getCopsWithCoords', function(cops)
+            local activeIds = {}
+
+            for _, cop in ipairs(cops) do
+                if cop.id ~= GetPlayerServerId(PlayerId()) and cop.coords then
+                    activeIds[cop.id] = true
+
+                    if blips[cop.id] then
+                        SetBlipCoords(blips[cop.id], cop.coords.x, cop.coords.y, cop.coords.z)
+                    else
                         local blip = AddBlipForCoord(cop.coords.x, cop.coords.y, cop.coords.z)
                         SetBlipSprite(blip, 1)
                         SetBlipScale(blip, 0.85)
                         SetBlipColour(blip, 3)
                         SetBlipAsShortRange(blip, false)
                         BeginTextCommandSetBlipName("STRING")
-                        AddTextComponentString("Police: " .. cop.name)
+                        AddTextComponentString("Police: " .. cop.name .. " (" .. cop.grade .. ")")
                         EndTextCommandSetBlipName(blip)
-                        table.insert(blips, blip)
+                        blips[cop.id] = blip
                     end
                 end
-            end)
-        end
+            end
+
+            -- Remove blips for cops no longer online
+            for id, blip in pairs(blips) do
+                if not activeIds[id] then
+                    RemoveBlip(blip)
+                    blips[id] = nil
+                end
+            end
+        end)
+
+        ::continue::
     end
+end
+
+function ClearAllBlips()
+    for _, blip in pairs(blips) do
+        RemoveBlip(blip)
+    end
+    blips = {}
 end
