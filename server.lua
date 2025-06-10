@@ -18,11 +18,8 @@ ESX.RegisterServerCallback('policeblips:getCopsWithCoords', function(source, cb)
                 table.insert(cops, {
                     id = playerId,
                     name = GetPlayerName(playerId),
-                    coords = {
-                        x = math.floor(coords.x * 100) / 100,
-                        y = math.floor(coords.y * 100) / 100,
-                        z = math.floor(coords.z * 100) / 100
-                    }
+                    grade = xPlayer.job.grade_label or tostring(xPlayer.job.grade),
+                    coords = { x = coords.x, y = coords.y, z = coords.z }
                 })
             end
         end
@@ -33,9 +30,5 @@ end)
 
 ESX.RegisterServerCallback('policeblips:getJob', function(source, cb)
     local xPlayer = ESX.GetPlayerFromId(source)
-    if xPlayer then
-        cb(xPlayer.job.name)
-    else
-        cb(nil)
-    end
+    cb(xPlayer and xPlayer.job.name or nil)
 end)
